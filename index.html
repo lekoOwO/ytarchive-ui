@@ -96,6 +96,10 @@
                         method: "DELETE"
                     }).then(() => statuses())
                 })
+                if (!v) {
+                    clear.querySelector("button").disabled = true;
+                    clear.querySelector("button").classList.add("disabled")
+                }
                 status.addEventListener("click", () => {
                     if (v.status === 2) alert(v.output.err)
                     else alert(v.output.out)
