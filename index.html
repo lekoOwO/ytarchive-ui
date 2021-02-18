@@ -1,0 +1,257 @@
+<html>
+
+<head>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tocas-ui/2.3.3/tocas.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tocas-ui/2.3.3/tocas.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            ts('.ts.dropdown:not(.basic)').dropdown();
+
+            setInterval(statuses, 5000);
+            statuses()
+
+            document.getElementById("go").addEventListener("click", async e => {
+                const url = document.getElementById("videoUrl").value;
+                if (!url) return;
+
+                const quality = document.getElementById("quality").value;
+                const params = getParams();
+
+                fetch("/record", {
+                    body: JSON.stringify({
+                        url,
+                        quality,
+                        params
+                    }),
+                    headers: {
+                        'content-type': 'application/json'
+                    },
+                    method: "POST"
+                }).then(() => statuses())
+            })
+        })
+
+        function getParams() {
+            let result = {};
+            for (const input of document.getElementsByClassName("param")) {
+                if (input.dataset.param) {
+                    if (input.checked) result[input.dataset.param] = true
+                }
+                else if (input.dataset.param2) {
+                    switch (input.type) {
+                        case "text":
+                            if (input.value.length) result[input.dataset.param2] = input.value;
+                            break;
+                        case "number":
+                            if (input.value.length && parseInt(input.value) > 0) result[input.dataset.param2] = input.value;
+                            break;
+                    }
+                }
+            }
+            // Special params
+            result[document.getElementById("wait").checked ? "--wait" : "--no-wait"] = true;
+            if (document.getElementById("cookie").checked) result["--cookies"] = "./cookie.txt"
+            return result;
+        }
+
+        async function statuses() {
+            const resp = await fetch("/status");
+            const data = await resp.json();
+
+            // Remove org data
+            const tbody = document.querySelector("tbody");
+            tbody.innerHTML = "";
+
+            // Add new data
+            const trt = document.getElementById("trTemplate")
+            const statust = document.getElementById("statusTemplate")
+            const cleart = document.getElementById("clearTemplate")
+            for (const [k, v] of Object.entries(data)) {
+                const tr = trt.content.querySelector("tr")
+                const tds = tr.querySelectorAll("td")
+                tds[0].textContent = k;
+
+                let status;
+                if (v) {
+                    if (v.status === 2) {
+                        status = statust.content.querySelector("td.negative")
+                    } else {
+                        status = statust.content.querySelector("td.positive")
+                    }
+                } else {
+                    status = statust.content.querySelector("td.info")
+                }
+
+                const clone = document.importNode(trt.content, true);
+                status = document.importNode(status, true)
+                const clear = document.importNode(cleart.content, true)
+                clear.querySelector("button").addEventListener("click", () => {
+                    fetch(`/status`, {
+                        body: JSON.stringify({
+                            id: k
+                        }),
+                        headers: {
+                            'content-type': 'application/json'
+                        },
+                        method: "DELETE"
+                    }).then(() => statuses())
+                })
+                status.addEventListener("click", () => {
+                    if (v.status === 2) alert(v.output.err)
+                    else alert(v.output.out)
+                })
+                clone.querySelector("tr").appendChild(status)
+                clone.querySelector("tr").appendChild(clear)
+                tbody.appendChild(clone)
+            }
+        }
+    </script>
+    <style>
+        .centerCell {
+            text-align: center;
+            vertical-align: middle;
+        }
+
+        .centerTable {
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .hide {
+            display: none;
+        }
+
+        .ts.checkbox:not(.toggle) {
+            margin-top: 3.5px;
+        }
+
+        .centerParent {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            align-items: center;
+            margin-top: 20%;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="ts attached heading slate">
+        <div class="ts narrow container">
+            <span class="header">YTArchive</span>
+            <span class="description"></span>
+        </div>
+    </div>
+    <br><br>
+    <div class="ts narrow container">
+        <div class="ts action circular fluid input">
+            <input id="videoUrl" type="text" placeholder="Youtube 影片網址">
+            <select class="ts basic dropdown" id="quality">
+                <option>best</option>
+                <option>1080p60</option>
+                <option>720p60</option>
+                <option>720p</option>
+                <option>480p</option>
+                <option>360p</option>
+                <option>240p</option>
+                <option>144p</option>
+                <option>audio_only</option>
+            </select>
+        </div>
+        <br><br>
+        <div class="ts very narrow container">
+            <div class="ts grid">
+                <div class="three wide column">
+                    <div class="ts checkbox">
+                        <input type="checkbox" id="addMetadata" data-param="--add-metadata" class="param">
+                        <label for="addMetadata">加入中繼資料</label>
+                    </div>
+                </div>
+                <div class="three wide column">
+                    <div class="ts checkbox">
+                        <input type="checkbox" id="thumbnail" data-param="--thumbnail" class="param">
+                        <label for="thumbnail">加入 thumbnail</label>
+                    </div>
+                </div>
+                <div class="three wide column">
+                    <div class="ts toggle checkbox">
+                        <input type="checkbox" id="wait">
+                        <label for="wait">等待直播</label>
+                    </div>
+                </div>
+                <div class="three wide column">
+                    <div class="ts toggle checkbox">
+                        <input type="checkbox" id="vp9" data-param="--vp9" class="param">
+                        <label for="vp9">VP9</label>
+                    </div>
+                </div>
+                <div class="three wide column">
+                    <div class="ts toggle checkbox">
+                        <input type="checkbox" id="cookie">
+                        <label for="cookie">Cookie</label>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <br>
+        <div class="ts very narrow container">
+            <div class="ts small labeled input">
+                <div class="ts label">
+                    輸出檔名
+                </div>
+                <input id="output" data-param2="--output" type="text" placeholder="輸出檔名" class="param">
+            </div>
+            <br><br>
+            <div class="ts small labeled input">
+                <div class="ts label">
+                    串流重試秒數
+                </div>
+                <input id="retryStream" data-param2="--retry-stream" type="number" placeholder="串流重試秒數" class="param">
+            </div>
+            <br><br>
+            <div class="ts small labeled input">
+                <div class="ts label">
+                    執行緒數量
+                </div>
+                <input id="threads" data-param2="--threads" type="number" placeholder="執行緒數量" class="param">
+            </div>
+        </div>
+        <br>
+        <div class="ts narrow container">
+            <center><button class="ts circular positive button" id="go">送出</button></center>
+        </div>
+        <br>
+        <table id="table" class="ts table centerTable">
+            <thead>
+                <tr class="">
+                    <th class="eight wide">UID</th>
+                    <th></th>
+                    <th class="three wide">Status</th>
+                    <th class="one wide">Clear</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+            <template id="statusTemplate">
+                <td class="info"><i class="notched circle loading icon"></i> 處理中</td>
+                <td class="positive"><i class="check icon"></i> 已完成</td>
+                <td class="negative"><i class="remove icon"></i> 發生錯誤</td>
+                <td class="warning"><i class="caution icon"></i> 警告</td>
+            </template>
+            <template id="trTemplate">
+                <tr>
+                    <td name="uid">123</td>
+                    <td class="centerCell"></td>
+                </tr>
+            </template>
+            <template id="clearTemplate">
+                <div class="centerParent">
+                    <button class="ts mini compact secondary basic icon button center">
+                        <i class="cancel icon"></i>
+                    </button>
+                </div>
+            </template>
+        </table>
+    </div>
+</body>
+
+</html>
