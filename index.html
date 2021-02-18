@@ -5,8 +5,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tocas-ui/2.3.3/tocas.js"></script>
     <script>
         document.addEventListener("DOMContentLoaded", () => {
-            ts('.ts.dropdown:not(.basic)').dropdown();
-
             setInterval(statuses, 5000);
             statuses()
 
@@ -108,7 +106,68 @@
                 clone.querySelector("tr").appendChild(clear)
                 tbody.appendChild(clone)
             }
+            changeLang(window.lang)
         }
+    </script>
+    <script>
+        const LANGS = {};
+        LANGS.zh_TW = {
+            addMetadata: "加入中繼資料",
+            addThumbnail: "加入 thumbnail",
+            waitForLive: "等待直播",
+            outputFilename: "輸出檔名",
+            retryStream: "串流重試秒數",
+            threads: "執行緒數量",
+            go: "送出",
+            UID: "UID",
+            status: "狀態",
+            clear: "清除",
+            " pending": " 處理中",
+            " done": " 已完成",
+            " error": " 發生錯誤",
+            " caution": " 警告",
+            "lang": "語言",
+            "youtubeVideoURL": "YouTube 影片網址"
+        }
+        LANGS.en_US = {
+            addMetadata: "Embed metadata",
+            addThumbnail: "Embed thumbnail",
+            waitForLive: "Wait for Live",
+            outputFilename: "Output Filename",
+            retryStream: "Secs for Retrying",
+            threads: "Threads",
+            go: "SUBMIT",
+            UID: "UID",
+            status: "Status",
+            clear: "Clear",
+            " pending": " PENDING",
+            " done": " DONE",
+            " error": " ERROR",
+            " caution": " CAUTION",
+            "lang": "Language",
+            "youtubeVideoURL": "YouTube Video URL"
+        }
+
+        function changeLang(lang=window.lang){
+            for(const elem of document.querySelectorAll("[data-string]")){
+                const field = elem.dataset.string;
+                if (field.startsWith(" ")) elem.innerHTML = elem.innerHTML.replace(LANGS.zh_TW[field], LANGS[lang][field])
+                else if (elem.dataset.placeholder) elem.placeholder = LANGS[lang][field];
+                else elem.innerText = LANGS[lang][field];
+            }
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            ts('.ts.dropdown:not(.basic)').dropdown();
+
+            window.lang = "zh_TW"
+            for(const elem of document.getElementById("langMenu").childNodes){
+                elem.addEventListener("click", e => {
+                    window.lang = elem.id;
+                    changeLang(window.lang)
+                })
+            }
+        })
     </script>
     <style>
         .centerCell {
@@ -148,8 +207,23 @@
     </div>
     <br><br>
     <div class="ts narrow container">
+        <div class="ts floating dropdown labeled icon button">
+            <i class="globe icon"></i>
+            <span class="text" data-string="lang">語言</span>
+            <div class="menu" id="langMenu">
+                <div class="item" id="zh_TW">
+                    中文(台灣)
+                </div>
+                <div class="item" id="en_US">
+                    English
+                </div>
+            </div>
+        </div>
+    </div>
+    <br><br>
+    <div class="ts narrow container">
         <div class="ts action circular fluid input">
-            <input id="videoUrl" type="text" placeholder="Youtube 影片網址">
+            <input id="videoUrl" type="text" placeholder="Youtube 影片網址" data-string="youtubeVideoURL" data-placeholder="true">
             <select class="ts basic dropdown" id="quality">
                 <option>best</option>
                 <option>1080p60</option>
@@ -168,19 +242,19 @@
                 <div class="three wide column">
                     <div class="ts checkbox">
                         <input type="checkbox" id="addMetadata" data-param="--add-metadata" class="param">
-                        <label for="addMetadata">加入中繼資料</label>
+                        <label for="addMetadata" data-string="addMetadata">加入中繼資料</label>
                     </div>
                 </div>
                 <div class="three wide column">
                     <div class="ts checkbox">
                         <input type="checkbox" id="thumbnail" data-param="--thumbnail" class="param">
-                        <label for="thumbnail">加入 thumbnail</label>
+                        <label for="thumbnail" data-string="addThumbnail">加入 thumbnail</label>
                     </div>
                 </div>
                 <div class="three wide column">
                     <div class="ts toggle checkbox">
                         <input type="checkbox" id="wait">
-                        <label for="wait">等待直播</label>
+                        <label for="wait" data-string="waitForLive">等待直播</label>
                     </div>
                 </div>
                 <div class="three wide column">
@@ -200,50 +274,50 @@
         <br>
         <div class="ts very narrow container">
             <div class="ts small labeled input">
-                <div class="ts label">
+                <div class="ts label" data-string="outputFilename">
                     輸出檔名
                 </div>
-                <input id="output" data-param2="--output" type="text" placeholder="輸出檔名" class="param" value="%(upload_date)s %(title)s (%(id)s)">
+                <input id="output" data-param2="--output" type="text" class="param" value="%(upload_date)s %(title)s (%(id)s)">
             </div>
             <br><br>
             <div class="ts small labeled input">
-                <div class="ts label">
+                <div class="ts label" data-string="retryStream">
                     串流重試秒數
                 </div>
-                <input id="retryStream" data-param2="--retry-stream" type="number" placeholder="串流重試秒數" class="param">
+                <input id="retryStream" data-param2="--retry-stream" type="number" class="param">
             </div>
             <br><br>
             <div class="ts small labeled input">
-                <div class="ts label">
+                <div class="ts label" data-string="threads">
                     執行緒數量
                 </div>
-                <input id="threads" data-param2="--threads" type="number" placeholder="執行緒數量" class="param">
+                <input id="threads" data-param2="--threads" type="number" class="param">
             </div>
         </div>
         <br>
         <div class="ts narrow container">
-            <center><button class="ts circular positive button" id="go">送出</button></center>
+            <center><button class="ts circular positive button" id="go" data-string="go">送出</button></center>
         </div>
         <br>
         <table id="table" class="ts table centerTable">
             <thead>
                 <tr class="">
-                    <th class="eight wide">UID</th>
+                    <th class="eight wide" data-string="UID">UID</th>
                     <th></th>
-                    <th class="three wide">Status</th>
-                    <th class="one wide">Clear</th>
+                    <th class="three wide" data-string="status">狀態</th>
+                    <th class="one wide" data-string="clear">清除</th>
                 </tr>
             </thead>
             <tbody></tbody>
             <template id="statusTemplate">
-                <td class="info"><i class="notched circle loading icon"></i> 處理中</td>
-                <td class="positive"><i class="check icon"></i> 已完成</td>
-                <td class="negative"><i class="remove icon"></i> 發生錯誤</td>
-                <td class="warning"><i class="caution icon"></i> 警告</td>
+                <td class="info" data-string=" pending"><i class="notched circle loading icon"></i> 處理中</td>
+                <td class="positive" data-string=" done"><i class="check icon"></i> 已完成</td>
+                <td class="negative" data-string=" error"><i class="remove icon"></i> 發生錯誤</td>
+                <td class="warning" data-string=" caution"><i class="caution icon"></i> 警告</td>
             </template>
             <template id="trTemplate">
                 <tr>
-                    <td name="uid">123</td>
+                    <td name="uid"></td>
                     <td class="centerCell"></td>
                 </tr>
             </template>
