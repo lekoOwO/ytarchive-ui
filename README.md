@@ -14,7 +14,7 @@ Web UI for ytarchive
 ## Usage
 Put `cookie.txt` in the dir if needed (optional).
 
-run `run.bat` (Windows) or `run.sh` (\*nix).
+After the dependencies installed, run `run.bat` (Windows) or `run.sh` (\*nix).
 
 ```
 Downloading ytarchive...
