@@ -6,7 +6,9 @@
     <script>
         document.addEventListener("DOMContentLoaded", () => {
             setInterval(statuses, 5000);
-            statuses()
+            setInterval(cookieAvailable, 5000);
+            statuses();
+            cookieAvailable();
 
             document.getElementById("go").addEventListener("click", async e => {
                 const url = document.getElementById("videoUrl").value;
@@ -107,6 +109,18 @@
                 tbody.appendChild(clone)
             }
             changeLang(window.lang)
+        }
+        async function cookieAvailable() {
+            const cookie = document.getElementById("cookie")
+            const resp = await fetch("/cookie");
+            if (resp.status === 404) {
+                cookie.checked = false;
+                cookie.parentNode.classList.add("disabled");
+                cookie.disabled = true;
+            } else {
+                cookie.parentNode.classList.remove("disabled");
+                cookie.disabled = false;
+            }
         }
     </script>
     <script>

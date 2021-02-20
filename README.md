@@ -12,11 +12,14 @@ Web UI for ytarchive
 - gunicorn (python3 package)
 
 ## Usage
-Put `ytarchive.exe` in the dir (`ytarchive.py` if not Windows OS, don't forget to give it a executable permission), also `cookie.txt` if needed (optional).
+Put `cookie.txt` in the dir if needed (optional).
 
 run `run.bat` (Windows) or `run.sh` (\*nix).
 
 ```
+Downloading ytarchive...
+Finished.
+Starting service...
 Serving on <URL>
 ```
 

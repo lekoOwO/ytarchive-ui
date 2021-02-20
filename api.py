@@ -2,6 +2,7 @@ import os
 import falcon
 import uuid as _uuid
 import json
+import sys
 
 import multiprocessing
 import subprocess
@@ -10,12 +11,12 @@ from multiprocessing.pool import ThreadPool
 pool = ThreadPool(processes=int(os.getenv('PROCESSES', multiprocessing.cpu_count())))
 
 def archive(url, quality, params={}):
-    cmd = "./ytarchive.exe" if os.name == 'nt' else "./ytarchive.py"
+    cmd = f"'{sys.executable}' ./ytarchive.py"
     for k, v in params.items():
         if type(v) == bool:
             cmd += f" {k}"
         else:
-            cmd += f" {k} \"{v}\""
+            cmd += f" {k} '{v}'"
     cmd += f" {url} {quality}"
     p = subprocess.Popen(shlex.split(cmd), stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     out, err = p.communicate()
@@ -85,7 +86,15 @@ class Website:
         with open("./index.html", "rb") as f:
             resp.body = f.read()
 
+class CookieAvailable:
+    def on_get(self, req, resp):
+        if os.path.isfile("./cookie.txt"):
+            resp.status = falcon.HTTP_302
+        else:
+            resp.status = falcon.HTTP_404
+
 api = falcon.API()
 api.add_route('/status', Status())
 api.add_route('/record', Record())
 api.add_route('/', Website())
+api.add_route('/cookie', CookieAvailable())
