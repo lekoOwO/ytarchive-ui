@@ -18,8 +18,14 @@ def archive(url, quality, params={}):
         else:
             cmd += f" {k} '{v}'"
     cmd += f" {url} {quality}"
-    p = subprocess.Popen(shlex.split(cmd), stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    p = subprocess.Popen(shlex.split(cmd), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     out, err = p.communicate()
+    
+    if type(out) == bytes:
+        out = out.decode(sys.stdout.encoding)
+    if type(err) == bytes:
+        err = err.decode(sys.stdout.encoding)
+        
     return (out, err)
 
 statuses = {}
