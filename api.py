@@ -8,8 +8,61 @@ import multiprocessing
 import subprocess
 import shlex
 from multiprocessing.pool import ThreadPool
+
+import urllib.request
+import shutil
+
 pool = ThreadPool(processes=int(os.getenv('PROCESSES', multiprocessing.cpu_count())))
 
+# ----- ytarchive upgrade -----
+def get_latest_ytarchive_commit():
+    url = "https://api.github.com/repos/Kethsar/ytarchive/commits"
+    req = urllib.request.Request(url)
+    
+    response = urllib.request.urlopen(req)
+    encoding = response.info().get_content_charset('utf-8')
+    resp_data = json.loads(response.read().decode(encoding))
+
+    commit = resp_data[0]["sha"]
+
+    return commit
+
+
+def get_latest_ytarchive():
+    url = "https://raw.githubusercontent.com/Kethsar/ytarchive/master/ytarchive.py"
+
+    with urllib.request.urlopen(url) as response, open("./ytarchive.py", 'wb') as out_file:
+        shutil.copyfileobj(response, out_file)
+
+    commit = get_latest_ytarchive_commit()
+
+    with open("./ytarchive.commit", 'w') as f:
+        f.write(commit)
+
+if not os.path.isfile("./ytarchive.commit"):
+    if os.path.isfile("./ytarchive.py"):
+        print("[INFO] Unknown ytarchive version. Redownloading...")
+        os.remove("./ytarchive.py")
+    else:
+        print("[INFO] ytarchive not found. Downloading...")
+    get_latest_ytarchive()
+
+else:
+    if not os.path.isfile("./ytarchive.py"):
+        print("[INFO] ytarchive not found. Downloading...")
+        get_latest_ytarchive()
+    else:
+        with open("./ytarchive.commit", 'r') as f:
+            print("[INFO] Checking if ytarchive is latest...")
+            commit = f.read()
+            if commit != get_latest_ytarchive_commit():
+                print("[INFO] Upgrading ytarchive...")
+                get_latest_ytarchive()
+                print("[INFO] Finished.")
+            else:
+                print("[INFO] Using latest ytarchive!")
+
+# ----- ytarchive upgrade END -----
 def archive(url, quality, params={}):
     cmd = f"'{sys.executable}' ./ytarchive.py"
     for k, v in params.items():

@@ -3,3 +3,5 @@ __pycache__/api.cpython-38.pyc
 audio/
 video/
 ytarchive.py
+__pycache__/
+ytarchive.commit
