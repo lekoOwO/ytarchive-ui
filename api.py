@@ -12,6 +12,11 @@ from multiprocessing.pool import ThreadPool
 import urllib.request
 import shutil
 
+if os.path.isfile("./callbacks.py"):
+    from callbacks import callbacks
+else:
+    callbacks = None
+
 pool = ThreadPool(processes=int(os.getenv('PROCESSES', multiprocessing.cpu_count())))
 
 # ----- ytarchive upgrade -----
@@ -26,7 +31,6 @@ def get_latest_ytarchive_commit():
     commit = resp_data[0]["sha"]
 
     return commit
-
 
 def get_latest_ytarchive():
     url = "https://raw.githubusercontent.com/Kethsar/ytarchive/master/ytarchive.py"
@@ -63,7 +67,7 @@ else:
                 print("[INFO] Using latest ytarchive!")
 
 # ----- ytarchive upgrade END -----
-def archive(url, quality, params={}):
+def archive(url, quality, params={}, callback_id=None, on_callback=None):
     cmd = f"'{sys.executable}' ./ytarchive.py"
     for k, v in params.items():
         if type(v) == bool:
@@ -78,6 +82,23 @@ def archive(url, quality, params={}):
         out = out.decode(sys.stdout.encoding)
     if type(err) == bytes:
         err = err.decode(sys.stdout.encoding)
+
+    if callbacks and not len(err):
+        if on_callback:
+            on_callback()
+
+        filepath = out.split("Final file: ")[-1].rstrip()
+        filepath = os.path.abspath(filepath)
+        
+        tmp = callbacks[callback_id](filepath)
+
+        for key in tmp:
+            _out = tmp[key]["out"]
+            _err = tmp[key]["err"]
+
+            out += f"\n{key}:\n{_out}" 
+            if len(tmp[key]["err"]):
+                err += f"\n{key}:\n{_err}" 
         
     return (out, err)
 
@@ -86,9 +107,12 @@ statuses = {}
 def get_id():
     return _uuid.uuid4().hex
 
-def add_task(uid, task):
+def add_task(uid, task, callback=False):
     global statuses
-    statuses[uid] = task
+    if not callback:
+        statuses[uid] = {"task": task}
+    else:
+        statuses[uid] = {"task": task, "callback": False}
 
 class Status:
     def on_get(self, req, resp):
@@ -97,7 +121,7 @@ class Status:
         resp.media = {}
 
         for uid in statuses:
-            t = statuses[uid]
+            t = statuses[uid]["task"]
             if t.ready():
                 try:
                     out, err = t.get()
@@ -110,6 +134,10 @@ class Status:
                         "status": 2,
                         "output": {"out": None, "err": str(err)}
                     }
+            elif ("callback" in statuses[uid]) and statuses[uid]["callback"]:
+                resp.media[uid] = {
+                    "status": 3
+                }
             else:
                 resp.media[uid] = False
 
@@ -124,16 +152,29 @@ class Status:
 
 class Record:
     def on_post(self, req, resp):
-        global statuses
         global pool
 
         url = req.media.get('url')
         quality = req.media.get('quality')
         params = req.media.get('params')
 
+        callback_id = req.media.get('callback') if callbacks else None
+        if not len(callback_id):
+            callback_id = None
+
+        if callback_id:
+            def on_callback():
+                statuses[uid]["callback"] = True
+        else:
+            on_callback = None
+
+        if callback_id not in callbacks:
+            callback_id = None
+            on_callback = None
+
         uid = f"{url} - {get_id()}"
-        t = pool.apply_async(archive, (url, quality, params))
-        add_task(uid, t)
+        t = pool.apply_async(archive, (url, quality, params, callback_id, on_callback))
+        add_task(uid, t, callback=True)
 
         resp.media = {'id': uid}
         resp.status = falcon.HTTP_200
@@ -152,8 +193,23 @@ class CookieAvailable:
         else:
             resp.status = falcon.HTTP_404
 
+class Reboot:
+    def on_get(self, req, resp):
+        resp.status = falcon.HTTP_200
+        sys.exit(0)
+
+class Callbacks:
+    def on_get(self, req, resp):
+        if callbacks:
+            resp.media = [x for x in callbacks]
+            resp.status = falcon.HTTP_200
+        else:
+            resp.status = falcon.HTTP_404
+    
 api = falcon.API()
 api.add_route('/status', Status())
 api.add_route('/record', Record())
-api.add_route('/', Website())
 api.add_route('/cookie', CookieAvailable())
+api.add_route('/callbacks', Callbacks())
+api.add_route('/reboot', Reboot())
+api.add_route('/', Website())

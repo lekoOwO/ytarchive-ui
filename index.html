@@ -12,6 +12,7 @@
             setInterval(cookieAvailable, 5000);
             statuses();
             cookieAvailable();
+            callbacks();
 
             document.getElementById("go").addEventListener("click", async e => {
                 const url = document.getElementById("videoUrl").value;
@@ -19,12 +20,14 @@
 
                 const quality = document.getElementById("quality").value;
                 const params = getParams();
+                const callback = document.getElementById("callbacks").disabled ? "" : document.getElementById("callbacks").value;
 
                 fetch("/record", {
                     body: JSON.stringify({
                         url,
                         quality,
-                        params
+                        params,
+                        callback
                     }),
                     headers: {
                         'content-type': 'application/json'
@@ -78,11 +81,13 @@
                 if (v) {
                     if (v.status === 2) {
                         status = statust.content.querySelector("td.negative")
+                    } else if (v.status === 3) {
+                        status = statust.content.querySelector("td.info.callback")
                     } else {
                         status = statust.content.querySelector("td.positive")
                     }
                 } else {
-                    status = statust.content.querySelector("td.info")
+                    status = statust.content.querySelector("td.info.pending")
                 }
 
                 const clone = document.importNode(trt.content, true);
@@ -99,7 +104,7 @@
                         method: "DELETE"
                     }).then(() => statuses())
                 })
-                if (!v) {
+                if (!v || v.status === 3) {
                     clear.querySelector("button").disabled = true;
                     clear.querySelector("button").classList.add("disabled")
                 }
@@ -125,6 +130,25 @@
                 cookie.disabled = false;
             }
         }
+        async function callbacks() {
+            const callbacks = document.getElementById("callbacks")
+            const resp = await fetch("/callbacks");
+            if (resp.status === 404) {
+                callbacks.checked = false;
+                callbacks.parentNode.classList.add("disabled");
+                callbacks.disabled = true;
+            } else {
+                const data = await resp.json()
+                callbacks.parentNode.classList.remove("disabled");
+                callbacks.disabled = false;
+
+                for(const title of data){
+                    const option = document.createElement("option");
+                    option.text = title;
+                    callbacks.add(option);
+                }
+            }
+        }
     </script>
     <script>
         const LANGS = {};
@@ -143,8 +167,10 @@
             " done": " 已完成",
             " error": " 發生錯誤",
             " caution": " 警告",
+            " callback": " 後續處理中",
             "lang": "語言",
-            "youtubeVideoURL": "YouTube 影片網址"
+            "youtubeVideoURL": "YouTube 影片網址",
+            "callback": "Callback"
         }
         LANGS.en_US = {
             addMetadata: "Embed metadata",
@@ -161,8 +187,10 @@
             " done": " DONE",
             " error": " ERROR",
             " caution": " CAUTION",
+            " callback": " CALLBACK",
             "lang": "Language",
-            "youtubeVideoURL": "YouTube Video URL"
+            "youtubeVideoURL": "YouTube Video URL",
+            "callback": "Callback"
         }
 
         function changeLang(lang=window.lang){
@@ -310,6 +338,15 @@
                 </div>
                 <input id="threads" data-param2="--threads" type="number" class="param">
             </div>
+            <br><br>
+            <div class="ts small labeled input">
+                <div class="ts label" data-string="callback">
+                    Callback
+                </div>
+                <select id="callbacks" class="ts basic dropdown">
+                    <option></option>
+                </select>
+            </div>
         </div>
         <br>
         <div class="ts narrow container">
@@ -327,7 +364,8 @@
             </thead>
             <tbody></tbody>
             <template id="statusTemplate">
-                <td class="info" data-string=" pending"><i class="notched circle loading icon"></i> 處理中</td>
+                <td class="info callback" data-string=" callback"><i class="notched circle loading icon"></i> 後續處理中</td>
+                <td class="info pending" data-string=" pending"><i class="notched circle loading icon"></i> 處理中</td>
                 <td class="positive" data-string=" done"><i class="check icon"></i> 已完成</td>
                 <td class="negative" data-string=" error"><i class="remove icon"></i> 發生錯誤</td>
                 <td class="warning" data-string=" caution"><i class="caution icon"></i> 警告</td>
