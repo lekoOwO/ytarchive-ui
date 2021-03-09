@@ -60,6 +60,30 @@
             return result;
         }
 
+        function editMessage(message){
+            document.getElementById("message").textContent = message;
+        }
+
+        function showMessage(){
+            document.querySelector("#dialog .header").dataset.string = "stdout"
+            changeLang(window.lang);
+            
+            ts('#dialog').modal({
+                onApprove: () => {
+                    document.querySelector("#dialog .header").dataset.string = "stdout"
+                    changeLang(window.lang);
+                    editMessage(window._output.out);
+                    return false;
+                },
+                onDeny: () => {
+                    document.querySelector("#dialog .header").dataset.string = "stderr"
+                    changeLang(window.lang);
+                    editMessage(window._output.err);
+                    return false;
+                }
+            }).modal("show")
+        }
+
         async function statuses() {
             const resp = await fetch("/status");
             const data = await resp.json();
@@ -72,6 +96,7 @@
             const trt = document.getElementById("trTemplate")
             const statust = document.getElementById("statusTemplate")
             const cleart = document.getElementById("clearTemplate")
+            const callbackt = document.getElementById("callbackTemplate")
             for (const [k, v] of Object.entries(data)) {
                 const tr = trt.content.querySelector("tr")
                 const tds = tr.querySelectorAll("td")
@@ -92,6 +117,7 @@
 
                 const clone = document.importNode(trt.content, true);
                 status = document.importNode(status, true)
+
                 const clear = document.importNode(cleart.content, true)
                 clear.querySelector("button").addEventListener("click", () => {
                     fetch(`/status`, {
@@ -108,12 +134,27 @@
                     clear.querySelector("button").disabled = true;
                     clear.querySelector("button").classList.add("disabled")
                 }
-                status.addEventListener("click", () => {
-                    if (v.status === 2) alert(v.output.err)
-                    else alert(v.output.out)
+
+                const callback = document.importNode(callbackt.content, true)
+                callback.querySelector("button").addEventListener("click", () => {
+                    fetch('/callback?' + new URLSearchParams({
+                        id: k
+                    })).then(() => statuses())
                 })
+                if (!v || v.status != 2) {
+                    callback.querySelector("button").disabled = true;
+                    callback.querySelector("button").classList.add("disabled")
+                }
+
+                status.addEventListener("click", () => {
+                    window._output = v.output;
+                    editMessage(v.output.out)
+                    showMessage()
+                })
+
                 clone.querySelector("tr").appendChild(status)
                 clone.querySelector("tr").appendChild(clear)
+                clone.querySelector("tr").appendChild(callback)
                 tbody.appendChild(clone)
             }
             changeLang(window.lang)
@@ -170,7 +211,9 @@
             " callback": " 後續處理中",
             "lang": "語言",
             "youtubeVideoURL": "YouTube 影片網址",
-            "callback": "Callback"
+            "callback": "Callback",
+            "stdout": "標準輸出",
+            "stderr": "錯誤訊息"
         }
         LANGS.en_US = {
             addMetadata: "Embed metadata",
@@ -190,7 +233,9 @@
             " callback": " CALLBACK",
             "lang": "Language",
             "youtubeVideoURL": "YouTube Video URL",
-            "callback": "Callback"
+            "callback": "Callback",
+            "stdout": "Output Log",
+            "stderr": "Error Log"
         }
 
         function changeLang(lang=window.lang){
@@ -352,14 +397,33 @@
         <div class="ts narrow container">
             <center><button class="ts circular positive button" id="go" data-string="go">送出</button></center>
         </div>
+        <div class="ts modals dimmer">
+            <dialog id="dialog" class="ts closable tiny modal">
+                <div class="header" data-string="stdout">
+                    標準輸出
+                </div>
+                <div class="content">
+                    <p id="message"></p>
+                </div>
+                <div class="actions">
+                    <button class="ts negative button" data-string="stderr">
+                        錯誤訊息
+                    </button>
+                    <button class="ts positive button" data-string="stdout">
+                        標準輸出
+                    </button>
+                </div>
+            </dialog>
+        </div>
         <br>
         <table id="table" class="ts table centerTable">
             <thead>
                 <tr class="">
-                    <th class="eight wide" data-string="UID">UID</th>
+                    <th class="seven wide" data-string="UID">UID</th>
                     <th></th>
                     <th class="three wide" data-string="status">狀態</th>
                     <th class="one wide" data-string="clear">清除</th>
+                    <th class="one wide" data-string="callback">Callback</th>
                 </tr>
             </thead>
             <tbody></tbody>
@@ -377,11 +441,22 @@
                 </tr>
             </template>
             <template id="clearTemplate">
-                <div class="centerParent">
-                    <button class="ts mini compact secondary basic icon button center">
-                        <i class="cancel icon"></i>
-                    </button>
-                </div>
+                <td>
+                    <div class="centerParent">
+                        <button class="ts mini compact secondary basic icon button center">
+                            <i class="cancel icon"></i>
+                        </button>
+                    </div>
+                </td>
+            </template>
+            <template id="callbackTemplate">
+                <td>
+                    <div class="centerParent">
+                        <button class="ts mini compact secondary basic icon button center">
+                            <i class="arrow right icon"></i>
+                        </button>
+                    </div>
+                </td>
             </template>
         </table>
     </div>

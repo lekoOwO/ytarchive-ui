@@ -83,7 +83,12 @@ def archive(url, quality, params={}, callback_id=None, on_callback=None):
     if type(err) == bytes:
         err = err.decode(sys.stdout.encoding)
 
-    if callbacks and not len(err):
+    if callbacks:
+        if len(err):
+            err += f"\n\n [INFO] Queued callback id: {callback_id}"
+            yield (out, err)
+            err = ''
+
         if on_callback:
             on_callback()
 
@@ -100,7 +105,7 @@ def archive(url, quality, params={}, callback_id=None, on_callback=None):
             if len(tmp[key]["err"]):
                 err += f"\n{key}:\n{_err}" 
         
-    return (out, err)
+    yield (out, err)
 
 statuses = {}
 
@@ -109,10 +114,13 @@ def get_id():
 
 def add_task(uid, task, callback=False):
     global statuses
-    if not callback:
-        statuses[uid] = {"task": task}
+    if uid in statuses:
+        statuses[uid]["task"] = task
     else:
-        statuses[uid] = {"task": task, "callback": False}
+        if not callback:
+            statuses[uid] = {"task": task}
+        else:
+            statuses[uid] = {"task": task, "callback": False}
 
 class Status:
     def on_get(self, req, resp):
@@ -173,8 +181,10 @@ class Record:
             on_callback = None
 
         uid = f"{url} - {get_id()}"
-        t = pool.apply_async(archive, (url, quality, params, callback_id, on_callback))
+        archive_gen = archive(url, quality, params, callback_id, on_callback)
+        t = pool.apply_async(lambda: next(archive_gen))
         add_task(uid, t, callback=True)
+        statuses[uid]["generator"] = archive_gen
 
         resp.media = {'id': uid}
         resp.status = falcon.HTTP_200
@@ -205,11 +215,20 @@ class Callbacks:
             resp.status = falcon.HTTP_200
         else:
             resp.status = falcon.HTTP_404
+
+class Callback:
+    def on_get(self, req, resp):
+        uid = req.get_param('id')
+        t = pool.apply_async(lambda: next(statuses[uid]["generator"]))
+        add_task(uid, t)
+
+        resp.status = falcon.HTTP_200
     
 api = falcon.API()
 api.add_route('/status', Status())
 api.add_route('/record', Record())
 api.add_route('/cookie', CookieAvailable())
 api.add_route('/callbacks', Callbacks())
+api.add_route('/callback', Callback())
 api.add_route('/reboot', Reboot())
 api.add_route('/', Website())
