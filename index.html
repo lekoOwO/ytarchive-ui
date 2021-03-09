@@ -67,7 +67,7 @@
         function showMessage(){
             document.querySelector("#dialog .header").dataset.string = "stdout"
             changeLang(window.lang);
-            
+
             ts('#dialog').modal({
                 onApprove: () => {
                     document.querySelector("#dialog .header").dataset.string = "stdout"
@@ -141,7 +141,7 @@
                         id: k
                     })).then(() => statuses())
                 })
-                if (!v || v.status != 2) {
+                if (!v || v.status != 2 || !v.isUnfinished) {
                     callback.querySelector("button").disabled = true;
                     callback.querySelector("button").classList.add("disabled")
                 }

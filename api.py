@@ -86,7 +86,7 @@ def archive(url, quality, params={}, callback_id=None, on_callback=None):
     if callbacks:
         if len(err):
             err += f"\n\n [INFO] Queued callback id: {callback_id}"
-            yield (out, err)
+            yield (out, err, True)
             err = ''
 
         if on_callback:
@@ -105,7 +105,7 @@ def archive(url, quality, params={}, callback_id=None, on_callback=None):
             if len(tmp[key]["err"]):
                 err += f"\n{key}:\n{_err}" 
         
-    yield (out, err)
+    yield (out, err, False)
 
 statuses = {}
 
@@ -132,15 +132,17 @@ class Status:
             t = statuses[uid]["task"]
             if t.ready():
                 try:
-                    out, err = t.get()
+                    out, err, is_unfinished = t.get()
                     resp.media[uid] = {
                         "status": 1 if not len(err) else 2,
-                        "output": {"out": out, "err": err}
+                        "output": {"out": out, "err": err},
+                        "isUnfinished":　is_unfinished
                     }
                 except Exception as err:
                     resp.media[uid] = {
                         "status": 2,
                         "output": {"out": None, "err": str(err)}
+                        "isUnfinished":　is_unfinished
                     }
             elif ("callback" in statuses[uid]) and statuses[uid]["callback"]:
                 resp.media[uid] = {
