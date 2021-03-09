@@ -83,7 +83,7 @@ def archive(url, quality, params={}, callback_id=None, on_callback=None):
     if type(err) == bytes:
         err = err.decode(sys.stdout.encoding)
 
-    if callbacks:
+    if callbacks and callback_id:
         if len(err):
             err += f"\n\n [INFO] Queued callback id: {callback_id}"
             yield (out, err, True)
@@ -136,13 +136,13 @@ class Status:
                     resp.media[uid] = {
                         "status": 1 if not len(err) else 2,
                         "output": {"out": out, "err": err},
-                        "isUnfinished":　is_unfinished
+                        "isUnfinished": is_unfinished
                     }
                 except Exception as err:
                     resp.media[uid] = {
                         "status": 2,
-                        "output": {"out": None, "err": str(err)}
-                        "isUnfinished":　is_unfinished
+                        "output": {"out": None, "err": str(err)},
+                        "isUnfinished": is_unfinished
                     }
             elif ("callback" in statuses[uid]) and statuses[uid]["callback"]:
                 resp.media[uid] = {
