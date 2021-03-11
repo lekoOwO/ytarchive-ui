@@ -1,6 +1,5 @@
 import os
 import falcon
-import uuid as _uuid
 import json
 import sys
 
@@ -11,6 +10,8 @@ from multiprocessing.pool import ThreadPool
 
 import urllib.request
 import shutil
+
+import traceback
 
 if os.path.isfile("./callbacks.py"):
     from callbacks import callbacks
@@ -94,23 +95,43 @@ def archive(url, quality, params={}, callback_id=None, on_callback=None):
 
         filepath = out.split("Final file: ")[-1].rstrip()
         filepath = os.path.abspath(filepath)
+
+        print(f"[DEBUG] Filepath: {filepath}")
         
         tmp = callbacks[callback_id](filepath)
 
-        for key in tmp:
-            _out = tmp[key]["out"]
-            _err = tmp[key]["err"]
+        if "front" in tmp and tmp["front"]:
+            for key in tmp["front"]:
+                _out = tmp["front"][key]["out"]
+                _err = tmp["front"][key]["err"]
 
-            out += f"\n{key}:\n{_out}" 
-            if len(tmp[key]["err"]):
-                err += f"\n{key}:\n{_err}" 
+                out = f"{key}:\n{_out}\n\n{out}" 
+                if len(tmp["front"][key]["err"]):
+                    err = f"{key}:\n{_err}\n\n{err}" 
+        
+        if "end" in tmp and tmp["end"]:
+            for key in tmp["end"]:
+                _out = tmp["end"][key]["out"]
+                _err = tmp["end"][key]["err"]
+
+                out += f"\n\n{key}:\n{_out}" 
+                if len(tmp["end"][key]["err"]):
+                    err += f"\n\n{key}:\n{_err}" 
         
     yield (out, err, False)
 
 statuses = {}
 
-def get_id():
-    return _uuid.uuid4().hex
+def get_id(x):
+    if x not in statuses:
+        return x
+
+    i = 0
+    while True:
+        tmp = f"{x}.{i}"
+        if tmp not in statuses:
+            return tmp
+        i += 1
 
 def add_task(uid, task, callback=False):
     global statuses
@@ -141,8 +162,8 @@ class Status:
                 except Exception as err:
                     resp.media[uid] = {
                         "status": 2,
-                        "output": {"out": None, "err": str(err)},
-                        "isUnfinished": is_unfinished
+                        "output": {"out": None, "err": traceback.format_exc()},
+                        "isUnfinished": False
                     }
             elif ("callback" in statuses[uid]) and statuses[uid]["callback"]:
                 resp.media[uid] = {
@@ -164,7 +185,8 @@ class Record:
     def on_post(self, req, resp):
         global pool
 
-        url = req.media.get('url')
+        youtube_id = req.media.get('youtubeID')
+        url = f"https://youtu.be/{youtube_id}"
         quality = req.media.get('quality')
         params = req.media.get('params')
 
@@ -182,7 +204,8 @@ class Record:
             callback_id = None
             on_callback = None
 
-        uid = f"{url} - {get_id()}"
+        uid = get_id(youtube_id)
+        
         archive_gen = archive(url, quality, params, callback_id, on_callback)
         t = pool.apply_async(lambda: next(archive_gen))
         add_task(uid, t, callback=True)

@@ -7,6 +7,11 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/tocas-ui/2.3.3/tocas.css" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tocas-ui/2.3.3/tocas.js"></script>
     <script>
+        function getYoutubeID(url){
+            const regex = /^.*(?:(?:youtu\.be\/|v\/|vi\/|u\/\w\/|embed\/)|(?:(?:watch)?\?v(?:i)?=|\&v(?:i)?=))([^#\&\?]*).*/;
+            return url.match(regex)[1];
+        }
+
         document.addEventListener("DOMContentLoaded", () => {
             setInterval(statuses, 5000);
             setInterval(cookieAvailable, 5000);
@@ -24,7 +29,7 @@
 
                 fetch("/record", {
                     body: JSON.stringify({
-                        url,
+                        youtubeID: getYoutubeID(url),
                         quality,
                         params,
                         callback
@@ -419,9 +424,9 @@
         <table id="table" class="ts table centerTable">
             <thead>
                 <tr class="">
-                    <th class="seven wide" data-string="UID">UID</th>
+                    <th class="collapsing" data-string="UID">UID</th>
                     <th></th>
-                    <th class="three wide" data-string="status">狀態</th>
+                    <th class="two wide" data-string="status">狀態</th>
                     <th class="one wide" data-string="clear">清除</th>
                     <th class="one wide" data-string="callback">Callback</th>
                 </tr>
