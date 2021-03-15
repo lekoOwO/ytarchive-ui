@@ -8,6 +8,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tocas-ui/2.3.3/tocas.js"></script>
     <script>
         function getYoutubeID(url){
+            if (!url.includes(".")) return url;
             const regex = /^.*(?:(?:youtu\.be\/|v\/|vi\/|u\/\w\/|embed\/)|(?:(?:watch)?\?v(?:i)?=|\&v(?:i)?=))([^#\&\?]*).*/;
             return url.match(regex)[1];
         }
@@ -25,14 +26,16 @@
 
                 const quality = document.getElementById("quality").value;
                 const params = getParams();
-                const callback = document.getElementById("callbacks").disabled ? "" : document.getElementById("callbacks").value;
+                const callbacks = document.getElementById("callbacks").disabled 
+                    ? "" 
+                    : [...document.querySelectorAll(".callback.item.selected")].map(x => x.id);
 
                 fetch("/record", {
                     body: JSON.stringify({
                         youtubeID: getYoutubeID(url),
                         quality,
                         params,
-                        callback
+                        callbacks
                     }),
                     headers: {
                         'content-type': 'application/json'
@@ -102,6 +105,7 @@
             const statust = document.getElementById("statusTemplate")
             const cleart = document.getElementById("clearTemplate")
             const callbackt = document.getElementById("callbackTemplate")
+            const bart = document.getElementById("barTemplate")
             for (const [k, v] of Object.entries(data)) {
                 const tr = trt.content.querySelector("tr")
                 const tds = tr.querySelectorAll("td")
@@ -121,7 +125,17 @@
                 }
 
                 const clone = document.importNode(trt.content, true);
-                status = document.importNode(status, true)
+                status = document.importNode(status, true);
+
+                if (v.status === 3) {
+                    const bar = bart.content;
+                    bar.querySelector(".bar").style.width = (v.callbacks.current + 1) / v.callbacks.queue.length
+
+                    clone.querySelector('td').appendChild(document.createElement("br"))
+                    clone.querySelector('td').appendChild(document.createElement("br"))
+
+                    clone.querySelector('td').appendChild(document.importNode(bar, true))
+                }
 
                 const clear = document.importNode(cleart.content, true)
                 clear.querySelector("button").addEventListener("click", () => {
@@ -188,10 +202,28 @@
                 callbacks.parentNode.classList.remove("disabled");
                 callbacks.disabled = false;
 
+                const callbackst = document.getElementById("callbacksTemplate")
+
                 for(const title of data){
-                    const option = document.createElement("option");
-                    option.text = title;
-                    callbacks.add(option);
+                    const target = document.importNode(callbackst.content, true)
+
+                    const header = target.querySelector(".header");
+                    header.textContent = title;
+
+                    const item = target.querySelector(".item");
+                    item.id = title;
+
+                    item.addEventListener("click", e => {
+                        e.target.classList.toggle("selected")
+                    })
+
+                    for(const elem of item.childNodes){
+                        elem.addEventListener("click", () => {
+                            item.dispatchEvent(new Event("click"))
+                        })
+                    }
+
+                    callbacks.appendChild(target)
                 }
             }
         }
@@ -289,6 +321,10 @@
             justify-content: center;
             align-items: center;
             margin-top: 20%;
+        }
+
+        th, *[name=uid] {
+            text-align: center !important;
         }
     </style>
 </head>
@@ -388,14 +424,8 @@
                 </div>
                 <input id="threads" data-param2="--threads" type="number" class="param">
             </div>
-            <br><br>
-            <div class="ts small labeled input">
-                <div class="ts label" data-string="callback">
-                    Callback
-                </div>
-                <select id="callbacks" class="ts basic dropdown">
-                    <option></option>
-                </select>
+            <br>
+            <div class="ts mini segmented selection items" id="callbacks">
             </div>
         </div>
         <br>
@@ -425,7 +455,6 @@
             <thead>
                 <tr class="">
                     <th class="collapsing" data-string="UID">UID</th>
-                    <th></th>
                     <th class="two wide" data-string="status">狀態</th>
                     <th class="one wide" data-string="clear">清除</th>
                     <th class="one wide" data-string="callback">Callback</th>
@@ -442,7 +471,6 @@
             <template id="trTemplate">
                 <tr>
                     <td name="uid"></td>
-                    <td class="centerCell"></td>
                 </tr>
             </template>
             <template id="clearTemplate">
@@ -462,6 +490,20 @@
                         </button>
                     </div>
                 </td>
+            </template>
+            <template id="callbacksTemplate">
+                <div class="callback item">
+                    <div class="middle aligned content">
+                        <i class="large circle notched icon"></i>
+                        <div class="header">
+                        </div>
+                    </div>
+                </div>
+            </template>
+            <template id="barTemplate">
+                <div class="ts active tiny progress">
+                    <div class="bar" style="width: 35%"></div>
+                </div>
             </template>
         </table>
     </div>

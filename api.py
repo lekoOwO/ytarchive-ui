@@ -68,7 +68,7 @@ else:
                 print("[INFO] Using latest ytarchive!")
 
 # ----- ytarchive upgrade END -----
-def archive(url, quality, params={}, callback_id=None, on_callback=None):
+def archive(url, quality, params={}, callback_ids=None, on_callback=None, on_main_finished=None):
     cmd = f"'{sys.executable}' ./ytarchive.py"
     for k, v in params.items():
         if type(v) == bool:
@@ -84,39 +84,42 @@ def archive(url, quality, params={}, callback_id=None, on_callback=None):
     if type(err) == bytes:
         err = err.decode(sys.stdout.encoding)
 
-    if callbacks and callback_id:
-        if len(err):
-            err += f"\n\n [INFO] Queued callback id: {callback_id}"
-            yield (out, err, True)
-            err = ''
+    if on_main_finished:
+        on_main_finished(url, quality, params, callback_ids, on_callback)
 
-        if on_callback:
-            on_callback()
-
+    if callbacks and callback_ids:
         filepath = out.split("Final file: ")[-1].rstrip()
         filepath = os.path.abspath(filepath)
 
-        print(f"[DEBUG] Filepath: {filepath}")
-        
-        tmp = callbacks[callback_id](filepath)
+        for callback_id_index in range(len(callback_ids)):
+            callback_id = callback_ids[callback_id_index]
+            if len(err):
+                err += f"\n\n [INFO] Queued callback id: {callback_id}"
+                yield (out, err, True)
+                err = ''
 
-        if "front" in tmp and tmp["front"]:
-            for key in tmp["front"]:
-                _out = tmp["front"][key]["out"]
-                _err = tmp["front"][key]["err"]
+            if on_callback:
+                on_callback(callback_id_index)
+            
+            tmp = callbacks[callback_id](filepath)
 
-                out = f"{key}:\n{_out}\n\n{out}" 
-                if len(tmp["front"][key]["err"]):
-                    err = f"{key}:\n{_err}\n\n{err}" 
-        
-        if "end" in tmp and tmp["end"]:
-            for key in tmp["end"]:
-                _out = tmp["end"][key]["out"]
-                _err = tmp["end"][key]["err"]
+            if "front" in tmp and tmp["front"]:
+                for key in tmp["front"]:
+                    _out = tmp["front"][key]["out"]
+                    _err = tmp["front"][key]["err"]
 
-                out += f"\n\n{key}:\n{_out}" 
-                if len(tmp["end"][key]["err"]):
-                    err += f"\n\n{key}:\n{_err}" 
+                    out = f"{key}:\n{_out}\n\n{out}" 
+                    if len(tmp["front"][key]["err"]):
+                        err = f"{key}:\n{_err}\n\n{err}" 
+            
+            if "end" in tmp and tmp["end"]:
+                for key in tmp["end"]:
+                    _out = tmp["end"][key]["out"]
+                    _err = tmp["end"][key]["err"]
+
+                    out += f"\n\n{key}:\n{_out}" 
+                    if len(tmp["end"][key]["err"]):
+                        err += f"\n\n{key}:\n{_err}" 
         
     yield (out, err, False)
 
@@ -141,7 +144,13 @@ def add_task(uid, task, callback=False):
         if not callback:
             statuses[uid] = {"task": task}
         else:
-            statuses[uid] = {"task": task, "callback": False}
+            statuses[uid] = {
+                "task": task, 
+                "callbacks": {
+                    "queue": [],
+                    "current": -1
+                }
+            }
 
 class Status:
     def on_get(self, req, resp):
@@ -165,9 +174,10 @@ class Status:
                         "output": {"out": None, "err": traceback.format_exc()},
                         "isUnfinished": False
                     }
-            elif ("callback" in statuses[uid]) and statuses[uid]["callback"]:
+            elif ("callbacks" in statuses[uid]) and statuses[uid]["callbacks"]["current"] != -1:
                 resp.media[uid] = {
-                    "status": 3
+                    "status": 3,
+                    "callbacks": statuses[uid]["callbacks"]
                 }
             else:
                 resp.media[uid] = False
@@ -190,23 +200,22 @@ class Record:
         quality = req.media.get('quality')
         params = req.media.get('params')
 
-        callback_id = req.media.get('callback') if callbacks else None
-        if not len(callback_id):
-            callback_id = None
+        uid = get_id(youtube_id)
 
-        if callback_id:
-            def on_callback():
-                statuses[uid]["callback"] = True
+        callback_ids = req.media.get('callbacks') if callbacks else None
+        if not len(callback_ids):
+            callback_ids = None
+
+        if callback_ids:
+            def on_callback(callback_index):
+                statuses[uid]["callbacks"]["current"] = callback_index
+            def on_main_finished(url, quality, params, callback_ids, on_callback):
+                statuses[uid]["callbacks"]["queue"] = callback_ids
         else:
             on_callback = None
-
-        if callback_id not in callbacks:
-            callback_id = None
-            on_callback = None
-
-        uid = get_id(youtube_id)
+            on_main_finished = None
         
-        archive_gen = archive(url, quality, params, callback_id, on_callback)
+        archive_gen = archive(url, quality, params, callback_ids, on_callback, on_main_finished)
         t = pool.apply_async(lambda: next(archive_gen))
         add_task(uid, t, callback=True)
         statuses[uid]["generator"] = archive_gen
