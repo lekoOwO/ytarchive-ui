@@ -20,6 +20,12 @@
             cookieAvailable();
             callbacks();
 
+            if (localStorage.getItem("lang")){
+                changeLang();
+            } else {
+                localStorage.setItem("lang", "zh_TW")
+            }
+
             document.getElementById("go").addEventListener("click", async e => {
                 const url = document.getElementById("videoUrl").value;
                 if (!url) return;
@@ -176,7 +182,7 @@
                 clone.querySelector("tr").appendChild(callback)
                 tbody.appendChild(clone)
             }
-            changeLang(window.lang)
+            changeLang()
         }
         async function cookieAvailable() {
             const cookie = document.getElementById("cookie")
@@ -275,7 +281,7 @@
             "stderr": "Error Log"
         }
 
-        function changeLang(lang=window.lang){
+        function changeLang(lang=localStorage.getItem("lang")){
             for(const elem of document.querySelectorAll("[data-string]")){
                 const field = elem.dataset.string;
                 if (field.startsWith(" ")) elem.innerHTML = elem.innerHTML.replace(LANGS.zh_TW[field], LANGS[lang][field])
@@ -287,11 +293,10 @@
         document.addEventListener("DOMContentLoaded", () => {
             ts('.ts.dropdown:not(.basic)').dropdown();
 
-            window.lang = "zh_TW"
             for(const elem of document.getElementById("langMenu").childNodes){
                 elem.addEventListener("click", e => {
-                    window.lang = elem.id;
-                    changeLang(window.lang)
+                    localStorage.setItem("lang", e.target.id);
+                    changeLang()
                 })
             }
         })
