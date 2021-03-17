@@ -68,7 +68,7 @@ else:
                 print("[INFO] Using latest ytarchive!")
 
 # ----- ytarchive upgrade END -----
-def archive(url, quality, params={}, callback_ids=None, on_callback=None, on_main_finished=None):
+def archive(url, quality, params={}, callback_ids=[], on_callback=None, on_main_finished=None):
     cmd = f"'{sys.executable}' ./ytarchive.py"
     for k, v in params.items():
         if type(v) == bool:
@@ -202,9 +202,7 @@ class Record:
 
         uid = get_id(youtube_id)
 
-        callback_ids = req.media.get('callbacks') if callbacks else None
-        if not len(callback_ids):
-            callback_ids = None
+        callback_ids = req.media.get('callbacks') if callbacks else []
 
         if callback_ids:
             def on_callback(callback_index):
